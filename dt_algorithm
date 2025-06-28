@@ -1,0 +1,58 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from  sklearn.preprocessing import LabelEncoder, StandardScaler, OneHotEncoder
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.ensemble import RandomForestRegressor
+import xgboost as xgb
+from sklearn.metrics import accuracy_score, mean_absolute_percentage_error, mean_squared_error, r2_score
+#from  typing import
+class Decisiontree:   
+    '''This class will use the decision tree regressor model'''
+    
+    def __init__(self, df):
+        self.df=df
+        
+    def encoding_data(self):
+        numeric_columns=df.select_dtypes(include="number").columns
+        categorical_columns=df.select_dtypes(include="object").columns
+        encoder = OneHotEncoder(sparse_output=False, drop="first")
+        one_hot_encoded = encoder.fit_transform(df[categorical_columns])
+        one_hot_df = pd.DataFrame(one_hot_encoded, columns=encoder.get_feature_names_out(categorical_columns))
+        df = pd.concat([df, one_hot_df], axis=1)
+        df = df.drop(categorical_columns, axis=1)  
+        return df_encoded 
+    
+    def splitting_data(self, output_column):
+        X=df.drop(columns=output_column)
+        y=df[output_column]
+        self.X_train, self.X_test, self.y_train, self.y_test = train_test_split( X, y, test_size=0.2, random_state=1234)
+        
+    def dectree_basic(self):
+        model = DecisionTreeRegressor(random_state=42, max_depth=10) # Example: max_depth=10
+        # Fit the model to the training data
+        model.fit(self.X_train, self.y_train)
+        # Make predictions on the test data
+        y_predicted = dt_regressor.predict(self.X_test)
+
+        # Evaluate the Decision Tree model
+        dt_mse_test = mean_squared_error(self.y_test, y_predicted)
+        print(f"Decision Tree MSE of Test dataset: {dt_mse_test}")
+        dt_mse_train = mean_squared_error(self.y_train, y_predicted)
+        print(f"Decision Tree MSE of Train dataset: {dt_mse_train}")
+        
+        predictions = dt_regressor.predict(self.X_test)
+        accu_test = r2_score(self.y_test, predictions)
+        print("Decision Tree r2-score of test:", accu_test)
+        pred = dt_regressor.predict(self.X_train)
+        accu_train = r2_score(self.y_train, pred)
+        print("Decision Tree r2-score of train:", accu_train)
+        return(accu_test)
+    
+
+    
+    def hypertuning_decisiontree(self):
+        
+        
