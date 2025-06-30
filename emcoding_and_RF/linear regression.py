@@ -1,7 +1,7 @@
 
 import pandas as pd
 from sklearn.linear_model import LinearRegression
-from sklearn.metrics import r2_score, mean_squared_error
+from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
 import numpy as np
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 from sklearn.model_selection import train_test_split
@@ -128,107 +128,131 @@ X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, test_size=0.5, r
 print(X_train.describe())
 
 
-#For random forest
+#For linear regression 
+from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet
 
-from sklearn.ensemble import RandomForestRegressor
 
-model = RandomForestRegressor(n_estimators = 100, random_state =42)
-model.fit(X_train,y_train)
-
-y_pred = model.predict(X_val)
-
+regressor = LinearRegression()
+regressor.fit(X_train, y_train)
+y_pred = regressor.predict(X_val)
 r2 = r2_score(y_val, y_pred) # Evaluation
+mae = mean_absolute_error(y_test, y_pred)
 rmse = np.sqrt(mean_squared_error(y_val, y_pred))
-mae = mean_absolute_error(y_val, y_pred)
-
 
 print(f"R² score: {r2:.3f}")
 print(f"MAE: {mae:.2f}")
 print(f"RMSE: {rmse:.2f}")
 
+len(X_train), len(y_train),len(X_test), len(y_test)
+accu = r2_score(y_test, y_pred)
+print("Accuracy of test:", accu)
+
+pred = regressor.predict(X_train)
+accu = r2_score(y_train, pred)
+print("Accuracy of train:", accu)
+
+
 import matplotlib.pyplot as plt
 
-plt.scatter(y_val, y_pred, alpha=0.3)
+import seaborn as sns
+
+# Scatter Plot: Actual vs Predicted with regression line
+plt.figure(figsize=(10, 6))
+sns.scatterplot(x=y_val, y=y_pred, alpha=0.3, edgecolor=None)
+plt.plot([y_val.min(), y_val.max()], [y_val.min(), y_val.max()], color='red', linestyle='--', label="Perfect Prediction")
 plt.xlabel("Actual Price")
 plt.ylabel("Predicted Price")
-plt.title("Actual vs Predicted Prices")
-plt.plot([y_val.min(), y_val.max()], [y_val.min(), y_val.max()], color='red')
+plt.title("Linear Regression: Actual vs Predicted Prices")
+plt.legend()
+plt.tight_layout()
+plt.savefig("actual_vs_predicted_linear_regression.png", dpi=300)
 plt.show()
 
 
+residuals = y_val - y_pred
+
+plt.figure(figsize=(10, 5))
+sns.scatterplot(x=y_pred, y=residuals, alpha=0.3)
+plt.axhline(0, color='red', linestyle='--')
+plt.xlabel("Predicted Price")
+plt.ylabel("Residual (Actual - Predicted)")
+plt.title("Residual Plot - Linear Regression")
+plt.tight_layout()
+plt.savefig("residual_plot_linear_regression.png", dpi=300)
+plt.show()
 
 # #Problem with random forest = can overfit without tuning
 # #harder to interpret
 # #Fine tuning using GridSearchCV
 
 
-from sklearn.model_selection import RandomizedSearchCV
+# from sklearn.model_selection import RandomizedSearchCV
 
-rf = RandomForestRegressor(random_state=42)
+# rf = RandomForestRegressor(random_state=42)
 
-param_grid = {
-    "n_estimators":[100, 200, 300], #n_estimators= number of trees, More trees= higher stability but slower
-    "max_depth":[None, 10, 20, 30], #depth of each tree
-    "max_features":["auto", "sqrt"], #features for each split. sqrt betetr in wide databases
-    "min_samples_split":[2, 5], #minimum samples required to split a node
-    "min_samples_leaf":[1, 2], #minimum samples required at leaf node
-    "bootstrap": [True, False] #whether to use bootstarp samples= bagging= True
-}
+# param_grid = {
+#     "n_estimators":[100, 200, 300], #n_estimators= number of trees, More trees= higher stability but slower
+#     "max_depth":[None, 10, 20, 30], #depth of each tree
+#     "max_features":["auto", "sqrt"], #features for each split. sqrt betetr in wide databases
+#     "min_samples_split":[2, 5], #minimum samples required to split a node
+#     "min_samples_leaf":[1, 2], #minimum samples required at leaf node
+#     "bootstrap": [True, False] #whether to use bootstarp samples= bagging= True
+# }
 
-rf_Grid = RandomizedSearchCV(estimator=rf, param_distributions=param_grid, cv=3, verbose=2, random_state=42, n_jobs= -1 )#cv means cross=validation of 3, n_jobs to run the algoryth fast adn verbose should 
+# rf_Grid = RandomizedSearchCV(estimator=rf, param_distributions=param_grid, cv=3, verbose=2, random_state=42, n_jobs= -1 )#cv means cross=validation of 3, n_jobs to run the algoryth fast adn verbose should 
 
-rf_Grid.fit(X_train, y_train)
-
-
-rf_Grid.best_params_ #to see the best parameters available
-print("Best Parameters:", rf_Grid.best_params_)
-
-# Predict using the tuned/best model
-y_val_best = rf_Grid.predict(X_val)
-
-# Recalculate MAE and RMSE based on tuned model
-mae = mean_absolute_error(y_val, y_val_best)
-rmse = np.sqrt(mean_squared_error(y_val, y_val_best))
-
-# print them again
-print(f"[TUNED] MAE: {mae:.2f}")
-print(f"[TUNED] RMSE: {rmse:.2f}")
+# rf_Grid.fit(X_train, y_train)
 
 
-print(f"Train accuracy = {rf_Grid.score(X_train, y_train):.3f}")
-print(f"Test accuracy = {rf_Grid.score(X_test, y_test):.3f}")
-print(f"Train accuracy = {rf_Grid.score(X_train, y_train):.3f}")
-print(f"Test accuracy = {rf_Grid.score(X_test, y_test):.3f}")
+# rf_Grid.best_params_ #to see the best parameters available
+# print("Best Parameters:", rf_Grid.best_params_)
 
-X_train.to_csv("X_train.csv", index=False)
-X_val.to_csv("X_val.csv", index=False)
-X_test.to_csv("X_test.csv", index=False)
-y_train.to_csv("y_train.csv", index=False)
-y_val.to_csv("y_val.csv", index=False)
-y_test.to_csv("y_test.csv", index=False)
+# # Predict using the tuned/best model
+# y_val_best = rf_Grid.predict(X_val)
+
+# # Recalculate MAE and RMSE based on tuned model
+# mae = mean_absolute_error(y_val, y_val_best)
+# rmse = np.sqrt(mean_squared_error(y_val, y_val_best))
+
+# # print them again
+# print(f"[TUNED] MAE: {mae:.2f}")
+# print(f"[TUNED] RMSE: {rmse:.2f}")
 
 
-# Save Evaluation Metrics
-with open("random_forest_initial_metrics.txt", "w") as f:
-    f.write("Random Forest Evaluation (Initial Run)\n")
-    f.write(f"Best Parameters: {rf_Grid.best_params_}\n")
-    f.write(f"Train R² Score: {rf_Grid.score(X_train, y_train):.3f}\n")
-    f.write(f"Test R² Score: {rf_Grid.score(X_test, y_test):.3f}\n")
-    f.write(f"MAE: {mae:.2f}\n")
-    f.write(f"RMSE: {rmse:.2f}\n")
+# print(f"Train accuracy = {rf_Grid.score(X_train, y_train):.3f}")
+# print(f"Test accuracy = {rf_Grid.score(X_test, y_test):.3f}")
+# print(f"Train accuracy = {rf_Grid.score(X_train, y_train):.3f}")
+# print(f"Test accuracy = {rf_Grid.score(X_test, y_test):.3f}")
 
-print("Training/Validation/Test splits saved to CSV.")
+# X_train.to_csv("X_train.csv", index=False)
+# X_val.to_csv("X_val.csv", index=False)
+# X_test.to_csv("X_test.csv", index=False)
+# y_train.to_csv("y_train.csv", index=False)
+# y_val.to_csv("y_val.csv", index=False)
+# y_test.to_csv("y_test.csv", index=False)
 
-df.to_csv("processed_data_for_modeling.csv", index=False)
 
-# Predict with best model
-y_val_best = rf_Grid.predict(X_val)
+# # Save Evaluation Metrics
+# with open("random_forest_initial_metrics.txt", "w") as f:
+#     f.write("Random Forest Evaluation (Initial Run)\n")
+#     f.write(f"Best Parameters: {rf_Grid.best_params_}\n")
+#     f.write(f"Train R² Score: {rf_Grid.score(X_train, y_train):.3f}\n")
+#     f.write(f"Test R² Score: {rf_Grid.score(X_test, y_test):.3f}\n")
+#     f.write(f"MAE: {mae:.2f}\n")
+#     f.write(f"RMSE: {rmse:.2f}\n")
 
-# Recalculate metrics (optional, but recommended)
-mae = mean_absolute_error(y_val, y_val_best)
-rmse = np.sqrt(mean_squared_error(y_val, y_val_best))
-print(f"[TUNED] MAE: {mae:.2f}")
-print(f"[TUNED] RMSE: {rmse:.2f}")
+# print("Training/Validation/Test splits saved to CSV.")
+
+# df.to_csv("processed_data_for_modeling.csv", index=False)
+
+# # Predict with best model
+# y_val_best = rf_Grid.predict(X_val)
+
+# # Recalculate metrics (optional, but recommended)
+# mae = mean_absolute_error(y_val, y_val_best)
+# rmse = np.sqrt(mean_squared_error(y_val, y_val_best))
+# print(f"[TUNED] MAE: {mae:.2f}")
+# print(f"[TUNED] RMSE: {rmse:.2f}")
 
 # Save updated predictions
 predicted_vs_actual = pd.DataFrame({
@@ -237,23 +261,23 @@ predicted_vs_actual = pd.DataFrame({
 })
 predicted_vs_actual.to_csv("validation_predictions.csv", index=False)
 
-# Plot again
-plt.figure(figsize=(8, 6))
-plt.scatter(y_val, y_val_best, alpha=0.3)
-plt.xlabel("Actual Price")
-plt.ylabel("Predicted Price")
-plt.title("Validation Set: Actual vs Predicted Prices (Tuned RF)")
-plt.plot([y_val.min(), y_val.max()], [y_val.min(), y_val.max()], color='red')
-plt.savefig("actual_vs_predicted_scatter_tuned.png")
-plt.close()
+# # Plot again
+# plt.figure(figsize=(8, 6))
+# plt.scatter(y_val, y_val_best, alpha=0.3)
+# plt.xlabel("Actual Price")
+# plt.ylabel("Predicted Price")
+# plt.title("Validation Set: Actual vs Predicted Prices (Tuned RF)")
+# plt.plot([y_val.min(), y_val.max()], [y_val.min(), y_val.max()], color='red')
+# plt.savefig("actual_vs_predicted_scatter_tuned.png")
+# plt.close()
 
 
-importances = rf_Grid.best_estimator_.feature_importances_
-features = X_train.columns
+# importances = rf_Grid.best_estimator_.feature_importances_
+# features = X_train.columns
 
-feature_importance_df = pd.DataFrame({
-    'Feature': features,
-    'Importance': importances
-}).sort_values(by='Importance', ascending=False)
+# feature_importance_df = pd.DataFrame({
+#     'Feature': features,
+#     'Importance': importances
+# }).sort_values(by='Importance', ascending=False)
 
-feature_importance_df.to_csv("feature_importances.csv", index=False)
+# feature_importance_df.to_csv("feature_importances.csv", index=False)
