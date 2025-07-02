@@ -50,6 +50,29 @@ pip install -r requirements.txt
 ```
 ## 🛠️ Usage
 
+## Data Cleaning
+
+    Removed duplicate listings and statistical outliers using the IQR filter (properties outside 1.5×IQR from the median).
+
+    Identified and handled missing values through imputation techniques appropriate to each feature.
+   
+    
+## Feature Engineering
+
+    Encoded categorical variables (property type, subtype, EPC rating, building condition, etc.) using one hot encoding and targeted numerical mapping for interpretability and model efficiency. 
+
+    Merged columns (inside and outside parking) to keep the maximum information from the data
+
+    Feature Selection based on data availability and relevance, prioritizing fields with high data completeness and strong predictive potential for the ML model.
+
+ Execute provide scripts:
+```bash
+    DataCleaner.py              # To clean the data set
+    free_outliers.py            # To delete the outliers value using IQR filter
+    controlQuality.py           # To control the quality of dataset
+    create_cleaned_file.py      # To generate the cleaned file
+
+```
 ### Running the pipeline
 
 Execute one of the provided scripts:
