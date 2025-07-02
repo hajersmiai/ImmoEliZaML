@@ -1,6 +1,0 @@
-Random Forest Evaluation (Initial Run)
-Best Parameters: {'n_estimators': 300, 'min_samples_split': 5, 'min_samples_leaf': 1, 'max_features': 'sqrt', 'max_depth': None, 'bootstrap': False}
-Train R² Score: 0.965
-Test R² Score: 0.792
-MAE: 95985.32
-RMSE: 207597.51
