@@ -6,14 +6,15 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
 # Load data
-df = pd.read_csv("ImmoEliZaML/data/cleaned_data_no_outliers.csv")
+df = pd.read_csv("ImmoElizaML/ImmoEliZaML/data/cleaned_data_no_outliers.csv")
 
 features = [
     "bedroomCount", "bathroomCount", "habitableSurface", "roomCount",
-    "buildingConstructionYear", "facedeCount", "floorCount", "toiletCount",
+    "buildingConstructionYear", "facedeCount", "floorCount", "toiletCount","postalCode",
     "diningRoomSurface", "kitchenSurface", "terraceSurface", "livingRoomSurface",
     "landSurface", "gardenSurface", "parkingCountIndoor", "parkingCountOutdoor",
-    "buildingCondition_enc", "epcScore_enc", "heatingType_enc", "floodZoneType_enc", "kitchenType_enc"
+    "buildingCondition_enc", "epcScore_enc", "heatingType_enc", "floodZoneType_enc", 
+    "kitchenType_enc","subtype_enc","type_enc","gardenOrientation_enc","terraceOrientation_enc"
 ]
 target = "price"
 features = [col for col in features if col in df.columns]
