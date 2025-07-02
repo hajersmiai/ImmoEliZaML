@@ -233,7 +233,23 @@ class DataCleaner:
                 "missing value": np.nan, 'NOT_INSTALLED': 0, 'SEMI_EQUIPPED': 1,
                 'INSTALLED': 2, 'HYPER_EQUIPPED': 3, 'USA_UNINSTALLED': 0,
                 'USA_SEMI_EQUIPPED': 1, 'USA_INSTALLED': 2, 'USA_HYPER_EQUIPPED': 3
-            }
+            },
+            'type':{
+                'APARTMENT':1,
+                'HOUSE':2
+            },
+            'subtype':{
+                'APARTMENT':1,'FLAT_STUDIO':2,'DUPLEX':3,'PENTHOUSE':4,'GROUND_FLOOR':5,'APARTMENT_BLOCK':6,
+                'MANSION':7,'HOUSE':8,'MIXED_USE_BUILDING':9,'TRIPLEX':10,'LOFT':11,'EXCEPTIONAL_PROPERTY':12,
+                'VILLA':13,'TOWN_HOUSE':14,'CHALET':15,'MANOR_HOUSE':16,'SERVICE_FLAT':17,'KOT':18,'FARMHOUSE':19,
+                'BUNGALOW':20,'COUNTRY_COTTAGE':21,'OTHER_PROPERTY':22, 'CASTLE':23,'PAVILION':24
+            },
+            'terraceOrientation':{
+                  'unknown':np.nan,'SOUTH_WEST':1,'EAST':2,'WEST':3,
+                  'SOUTH':4,'NORTH_WEST':5, 'SOUTH_EAST':6,'NORTH_EAST':7,'NORTH':8
+            },
+            'gardenOrientation':'terraceOrientation'
+
         }
 
         # Apply each mapping to create encoded columns for ML
@@ -242,10 +258,9 @@ class DataCleaner:
                 new_col = f"{col}_enc"
                 # Replace using the mapping
                 df[new_col] = df[col].replace(mapping)
-
-                # Replace 'unknown' and other non-mapped strings with np.nan
-                df[new_col] = df[new_col].replace("unknown", np.nan)
-
+                # Convert all non-numeric leftovers (unmapped strings) to NaN safely
+                df[new_col] = pd.to_numeric(df[new_col], errors='coerce')
+                
                 # Finally convert to float
                 df[new_col] = df[new_col].astype(float)
                 print(f"[INFO] Encoded '{col}' → '{new_col}' with {df[new_col].isna().sum()} NaNs ready for ML.")

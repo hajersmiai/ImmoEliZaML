@@ -15,10 +15,11 @@ df = pd.DataFrame(data)
 # 2️⃣ Select features and target
 features = [
     "bedroomCount", "bathroomCount", "habitableSurface", "roomCount",
-    "buildingConstructionYear", "facedeCount", "floorCount", "toiletCount",
+    "buildingConstructionYear", "facedeCount", "floorCount", "toiletCount","postalCode",
     "diningRoomSurface", "kitchenSurface", "terraceSurface", "livingRoomSurface",
     "landSurface", "gardenSurface", "parkingCountIndoor", "parkingCountOutdoor",
-    "buildingCondition_enc", "epcScore_enc", "heatingType_enc", "floodZoneType_enc", "kitchenType_enc"
+    "buildingCondition_enc", "epcScore_enc", "heatingType_enc", "floodZoneType_enc", 
+    "kitchenType_enc","subtype_enc","type_enc","gardenOrientation_enc","terraceOrientation_enc"
 ]
 target = "price"
 features = [col for col in features if col in df.columns]
