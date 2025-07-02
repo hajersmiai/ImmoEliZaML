@@ -6,8 +6,15 @@ import numpy as np
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error
-
+from sklearn.ensemble import GradientBoostingRegressor
 import matplotlib.pyplot as plt
+import seaborn as sns
+import joblib
+
+from sklearn.model_selection import train_test_split, RandomizedSearchCV
+from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
+
+from xgboost import XGBRegressor
 
 
 df = pd.read_csv("cleaned_data_after_imputation .csv")
@@ -128,128 +135,33 @@ print("Final cleaned dataset saved as 'processed_data_for_modeling.csv'")
 
 
 target_name = "price"
-data_columns = df.columns.drop([target_name], errors='ignore')
 
-
-X = df[data_columns]
+X = df.drop(columns=[target_name])
 y = df[target_name]
 
-# SPlit to train and a temporary group which is gonna be split in validation adn testing
-X_train, X_temp, y_train, y_temp = train_test_split(X, y, test_size=0.3, random_state=42) #70%
+# ========== 2. Split Data ==========
+X_train, X_temp, y_train, y_temp = train_test_split(X, y, test_size=0.3, random_state=42)
+X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, test_size=0.5, random_state=42)
 
-X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, test_size=0.5, random_state=42) # 15%  (calidation group to tune the model and then 15% for testing
-
-print(X_train.describe())
-
-
-
-from sklearn.ensemble import GradientBoostingRegressor
-from xgboost import XGBRegressor
-from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
-from sklearn.model_selection import RandomizedSearchCV
-
-def evaluate_model(name, model, X_train, y_train, X_val, y_val):
+# ========== 3. Evaluation Function ==========
+def evaluate_model(name, model, X_train, y_train, X_eval, y_eval):
     model.fit(X_train, y_train)
-    y_pred = model.predict(X_val)
-    r2 = r2_score(y_val, y_pred)
-    mae = mean_absolute_error(y_val, y_pred)
-    rmse = np.sqrt(mean_squared_error(y_val, y_pred))
-    print(f"\n{name} Results:")
-    print(f"R² Score: {r2:.3f}")
-    print(f"MAE: {mae:,.2f}")
-    print(f"RMSE: {rmse:,.2f}")
-    return model, r2, mae, rmse
+    y_pred = model.predict(X_eval)
+    r2 = r2_score(y_eval, y_pred)
+    mae = mean_absolute_error(y_eval, y_pred)
+    rmse = np.sqrt(mean_squared_error(y_eval, y_pred))  # Proper definition
 
-# Gradient Boosting Regressor (Sklearn)
+    print(f"\n{name} Performance:")
+    print(f"R²:   {r2:.3f}")
+    print(f"MAE:  {mae:,.2f}")
+    print(f"RMSE: {rmse:,.2f}")  # Now rmse is defined
 
-from sklearn.ensemble import GradientBoostingRegressor
-
-gbr = GradientBoostingRegressor(random_state=42)
-
-param_grid_gbr = {
-    'n_estimators': [100, 200, 300],
-    'max_depth': [3, 5, 7],
-    'learning_rate': [0.01, 0.05, 0.1],
-    'min_samples_split': [2, 4],
-    'min_samples_leaf': [1, 2]
-}
-
-gbr_search = RandomizedSearchCV(
-    gbr,
-    param_distributions=param_grid_gbr,
-    n_iter=15,
-    cv=3,
-    scoring='r2',
-    verbose=1,
-    random_state=42,
-    n_jobs=-1
-)
-
-gbr_search.fit(X_train, y_train)
-print("Best GBR Params:", gbr_search.best_params_)
-
-
-# XGBoost
-
-xgb = XGBRegressor(objective='reg:squarederror', random_state=42, n_jobs=-1)
-
-param_grid_xgb = {
-    'n_estimators': [100, 200, 300],
-    'max_depth': [3, 5, 7, 10],
-    'learning_rate': [0.01, 0.05, 0.1],
-    'subsample': [0.6, 0.8, 1.0],
-    'colsample_bytree': [0.6, 0.8, 1.0]
-}
-
-xgb_search = RandomizedSearchCV(
-    xgb,
-    param_distributions=param_grid_xgb,
-    n_iter=20,
-    cv=3,
-    scoring='r2',
-    verbose=1,
-    random_state=42,
-    n_jobs=-1
-)
-
-xgb_search.fit(X_train, y_train)
-print("Best XGB Params:", xgb_search.best_params_)
-import joblib
-
-
-
-# Best models from search
-xgb_best = xgb_search.best_estimator_
-gbr_best = gbr_search.best_estimator_
-# Evaluate best models on test set
-evaluate_model("XGBoost (Test)", xgb_best, X_train, y_train, X_test, y_test)
-evaluate_model("Gradient Boosting (Test)", gbr_best, X_train, y_train, X_test, y_test)
-
-
-# Predictions
-y_pred_xgb = xgb_best.predict(X_test)
-y_pred_gbr = gbr_best.predict(X_test)
-
-# Save the model you choose
-joblib.dump(xgb_best, "xgb_model_price_predictor.joblib")
-
-print("\n[Train vs Test Evaluation for XGBoost]")
-
-# TRAIN performance
-evaluate_model("XGBoost (Train)", xgb_best, X_train, y_train, X_train, y_train)
-
-# TEST performance (again, just for side-by-side comparison)
-evaluate_model("XGBoost (Test)", xgb_best, X_train, y_train, X_test, y_test)
-
-train_r2 = r2_score(y_train, xgb_best.predict(X_train))
-test_r2 = r2_score(y_test, xgb_best.predict(X_test))
-print(f"\nOverfitting gap (Train R² - Test R²): {train_r2 - test_r2:.3f}")
-
+    return y_pred, r2, mae, rmse
 
 
 def plot_preds(y_true, y_pred, title):
     plt.figure(figsize=(6, 6))
-    plt.scatter(y_true, y_pred, alpha=0.3)
+    sns.scatterplot(x=y_true, y=y_pred, alpha=0.3)
     plt.plot([y_true.min(), y_true.max()], [y_true.min(), y_true.max()], 'r--')
     plt.xlabel("Actual Price")
     plt.ylabel("Predicted Price")
@@ -258,9 +170,52 @@ def plot_preds(y_true, y_pred, title):
     plt.grid()
     plt.show()
 
-# Plots
-plot_preds(y_test, y_pred_xgb, "XGBoost Predictions vs Actual")
-plot_preds(y_test, y_pred_gbr, "Gradient Boosting Predictions vs Actual")
+# ========== 4. Gradient Boosting ==========
+gbr = GradientBoostingRegressor(random_state=42)
+param_grid_gbr = {
+    'n_estimators': [100, 200, 300],
+    'max_depth': [3, 5, 7],
+    'learning_rate': [0.01, 0.05, 0.1],
+    'min_samples_split': [2, 4],
+    'min_samples_leaf': [1, 2]
+}
+gbr_search = RandomizedSearchCV(
+    gbr, param_distributions=param_grid_gbr, n_iter=15, cv=3,
+    scoring='r2', verbose=1, random_state=42, n_jobs=-1
+)
+gbr_search.fit(X_train, y_train)
+gbr_best = gbr_search.best_estimator_
+print("✅ Best GBR Params:", gbr_search.best_params_)
+
+# ========== 5. XGBoost ==========
+xgb = XGBRegressor(objective='reg:squarederror', random_state=42, n_jobs=-1)
+param_grid_xgb = {
+    'n_estimators': [100, 200, 300],
+    'max_depth': [3, 5, 7, 10],
+    'learning_rate': [0.01, 0.05, 0.1],
+    'subsample': [0.6, 0.8, 1.0],
+    'colsample_bytree': [0.6, 0.8, 1.0]
+}
+xgb_search = RandomizedSearchCV(
+    xgb, param_distributions=param_grid_xgb, n_iter=20, cv=3,
+    scoring='r2', verbose=1, random_state=42, n_jobs=-1
+)
+xgb_search.fit(X_train, y_train)
+xgb_best = xgb_search.best_estimator_
+print("✅ Best XGB Params:", xgb_search.best_params_)
+
+# ========== 6. Evaluation ==========
 
 
 
+print("\n[Gradient Boosting Results]")
+y_pred_gbr_test, r2_gbr_test, mae_gbr_test, rmse_gbr_test = evaluate_model(
+    "GBR - Test", gbr_best, X_train, y_train, X_test, y_test
+)
+
+
+# ========== 7. Overfitting Gap ==========
+print(f"\nOverfitting Gap GBR: {r2_score(y_train, gbr_best.predict(X_train)) - r2_score(y_test, gbr_best.predict(X_test)):.3f}")
+
+# ========== 8. Plots ==========
+plot_preds(y_test, y_pred_gbr_test, "GBR: Predicted vs Actual")
