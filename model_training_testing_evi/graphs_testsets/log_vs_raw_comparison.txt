@@ -1,0 +1,5 @@
+=== Raw Price Model ===
+R²: 0.777, MAE: 95510.78, RMSE: 203277.87
+
+=== Log-Transformed Model ===
+R²: 0.769, MAE: 93604.73, RMSE: 206916.18
