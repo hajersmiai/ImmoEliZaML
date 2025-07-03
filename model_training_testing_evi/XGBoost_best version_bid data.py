@@ -29,7 +29,7 @@ df = df.drop(columns=df.select_dtypes(include='object').columns, errors='ignore'
 
 # Save the clean, fully numerical dataset
 df.to_csv("processed_data_for_modeling.csv", index=False)
-print("✅ Final cleaned dataset saved as 'processed_data_for_modeling.csv'")
+print(" Final cleaned dataset saved as 'processed_data_for_modeling.csv'")
 
 print([col for col in df.columns if 'subtype' in col])
 
@@ -129,8 +129,8 @@ for params in param_grid:
         best_model = model
         best_params = params
 
-print("\n✅ Best Params Found:", best_params)
-print("✅ Best Validation MAE:", best_score)
+print("\n Best Params Found:", best_params)
+print(" Best Validation MAE:", best_score)
 
 # Save model
 best_model.save_model("xgb_model_final.json")

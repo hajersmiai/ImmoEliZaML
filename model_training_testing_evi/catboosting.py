@@ -9,277 +9,94 @@ from sklearn.metrics import mean_absolute_error
 
 
 df = pd.read_csv("cleaned_data_after_imputation .csv")
-postal_df = pd.read_csv("code-postaux-belge.csv", delimiter=";")
 
-postal_df.columns = postal_df.columns.str.strip().str.lower().str.replace(" ", "_")
-df.columns = df.columns.str.strip().str.lower()
-
-#Thinking of restricting the prediction afetr excluding prices on the highest 1% spectrum 
-
-price_99th = df['price'].quantile(0.99)
-print(f"95th percentile of price: {price_99th:.2f}")
-
-df = df[df['price'] <= price_99th]
-print(df.shape)
-
-
-print(df.columns.tolist())
-print(postal_df.columns.tolist())
-
-
-#enrichment with columns based on postcode ['code', 'localite', 'longitude', 'latitude']
-postal_df = postal_df.rename(columns={"code": "postcode"})
-
-postal_df = postal_df.drop_duplicates(subset="postcode")
-postal_df = postal_df.groupby("postcode").first().reset_index()
-
-columns_to_keep = ['postcode', 'longitude', 'latitude']
-postal_df = postal_df[columns_to_keep]
-
-df["postcode"] = df["postcode"].astype(str)
-postal_df["postcode"] = postal_df["postcode"].astype(str)
-
-df = df.merge(postal_df, how="left", on="postcode")
-df = df.dropna(subset=['longitude', 'latitude']) #drops only one row
-
-
-print(df.columns.tolist())
-print("Dataset shape:", df.shape)
-
-
-#Now that the database is ready we proceed to change all categorical to numericalcategorical_cols = df.select_dtypes(include='object').columns.tolist()
-#Check first:
-
-# categorical_cols = df.select_dtypes(include='object').columns.tolist()
-# print("Categorical columns:", categorical_cols)
-
-# for col in categorical_cols:
-#     print(f"\nColumn: {col}")
-#     print(f"Unique values ({df[col].nunique()}):")
-#     print(df[col].value_counts())
-
-# print(df.isna().sum())
-
-#First Type to 0/1
-df['type'] = df['type'].map({'HOUSE': 0, 'APARTMENT': 1})
-
-#epc and building condition => Ordinal encoding
-epc_map = {'missing': 0, 'A': 1, 'B': 2, 'C': 3, 'D': 4, 'E': 5, 'F': 6, 'G': 7}
-df['epcscore'] = df['epcscore'].map(epc_map)
-
-condition_map = {
-    'missing': 0,
-    'TO_RESTORE': 1,
-    'TO_BE_DONE_UP': 2,
-    'TO_RENOVATE': 3,
-    'JUST_RENOVATED': 4,
-    'GOOD': 5,
-    'AS_NEW': 6
-}
-df['buildingcondition'] = df['buildingcondition'].map(condition_map)
-
-#province 
-
-df = pd.get_dummies(df, columns=['province'], drop_first=True)
-
-from sklearn.preprocessing import OneHotEncoder
-# from sklearn.compose import ColumnTransformer
-
-# ct = ColumnTransformer(transformers=[
-#     ('onehot', OneHotEncoder(drop='first'), ['province'])
-# ], remainder='passthrough')
-
-# X_transformed = ct.fit_transform(df)
-
-#For localities they are so many is going to bring noice to the model, I checked with bar plot and most listing are in the top 50 localities.(Forest can handle even 100, but linear models no(30 is ok).
-#Plus in this occasion it wasnt worth it from 50-100 top localities). I grouped the rest in Other
-
-top_50 = df['locality'].value_counts().nlargest(50).index
-df['locality_grouped'] = df['locality'].apply(lambda x: x if x in top_50 else 'Other')
-
-ohe = OneHotEncoder(handle_unknown='ignore', sparse_output=False)
-locality_encoded = ohe.fit_transform(df[['locality_grouped']])
-locality_feature_names = ohe.get_feature_names_out(['locality_grouped'])
-locality_df = pd.DataFrame(locality_encoded, columns=locality_feature_names, index=df.index)
-df = pd.concat([df, locality_df], axis=1)
-
-df.drop('locality_grouped', axis=1, inplace=True)
-df.drop('locality', axis=1, inplace=True)
-
-
-#For subtype I had the idea to use label in an order that has to do with price from apartment to castle, but this would cause major data leakage,
-# I decided to go safer with the median surface and group them (this is kinda ok for Forest but not for linear regression).
-# # Second try I want to use one hot encoder + linear regression? distance based models like linear regression and KNN sensitive to labels/enumaration
-
-ordered_subtypes = df.groupby("subtype")["habitablesurface"].median().sort_values().index
-subtype_mapping = {subtype: i for i, subtype in enumerate(ordered_subtypes)}
-df["subtype_encoded"] = df["subtype"].map(subtype_mapping)
-df.drop(columns=['subtype'], inplace=True) #drop the original column
-
-df.to_csv("data_for_modeling.csv", index=False)
-print("Final cleaned dataset saved as 'processed_data_for_modeling.csv'")
-
-
-target_name = "price"
-data_columns = df.columns.drop([target_name], errors='ignore')
-
-
-X = df[data_columns]
-y = df[target_name]
-
-# SPlit to train and a temporary group which is gonna be split in validation adn testing
-X_train, X_temp, y_train, y_temp = train_test_split(X, y, test_size=0.3, random_state=42) #70%
-
-X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, test_size=0.5, random_state=42) # 15%  (calidation group to tune the model and then 15% for testing
-
-print(X_train.describe())
-
-
-
-#For random forest
-
-from sklearn.ensemble import RandomForestRegressor
-
-model = RandomForestRegressor(n_estimators = 100, random_state =42)
-model.fit(X_train, y_train)
-
-y_pred = model.predict(X_val)
-
-
-r2 = r2_score(y_val, y_pred) # Evaluation
-rmse = np.sqrt(mean_squared_error(y_val, y_pred))
-mae = mean_absolute_error(y_val, y_pred)
-
-
-print(f"R² score: {r2:.3f}")
-print(f"MAE: {mae:.2f}")
-print(f"RMSE: {rmse:.2f}")
-
-
-
-# #Problem with random forest = can overfit without tuning
-# #harder to interpret
-# #Fine tuning using GridSearchCV
-
-
-from sklearn.model_selection import RandomizedSearchCV
-
-rf = RandomForestRegressor(random_state=42)
-
-
-param_grid = {
-    "n_estimators":[300], #n_estimators= number of trees, More trees= higher stability but slower
-    "max_depth":[30], #depth of each tree
-    "max_features":[None], #features for each split. sqrt betetr in wide databases
-    "min_samples_split":[4], #minimum samples required to split a node
-    "min_samples_leaf":[2], #minimum samples required at leaf node
-    "bootstrap": [True] #whether to use bootstarp samples= bagging= True
-}
-
-rf_Grid = RandomizedSearchCV(estimator=rf, param_distributions=param_grid, cv=3, verbose=2, random_state=42, n_jobs= -1 )#cv means cross=validation of 3, n_jobs to run the algoryth fast adn verbose should 
-
-rf_Grid.fit(X_train, y_train)
-
-
-rf_Grid.best_params_ #to see the best parameters available
-print("Best Parameters:", rf_Grid.best_params_)
-
-# Predict using the tuned/best model
-y_val_best = rf_Grid.predict(X_val)
-
-# Recalculate MAE and RMSE based on tuned model
-mae = mean_absolute_error(y_val, y_val_best)
-rmse = np.sqrt(mean_squared_error(y_val, y_val_best))
-
-# print them again
-print(f"[TUNED] MAE: {mae:.2f}")
-print(f"[TUNED] RMSE: {rmse:.2f}")
-
-print(f"Train accuracy = {rf_Grid.score(X_train, y_train):.3f}")
-print(f"Test accuracy = {rf_Grid.score(X_test, y_test):.3f}")
-print(f"Train accuracy = {rf_Grid.score(X_train, y_train):.3f}")
-print(f"Test accuracy = {rf_Grid.score(X_test, y_test):.3f}")
-
-X_train.to_csv("X_train.csv", index=False)
-X_val.to_csv("X_val.csv", index=False)
-X_test.to_csv("X_test.csv", index=False)
-y_train.to_csv("y_train.csv", index=False)
-y_val.to_csv("y_val.csv", index=False)
-y_test.to_csv("y_test.csv", index=False)
-
-# Save Evaluation Metrics
-with open("random_forest_initial_metrics.txt", "w") as f:
-    f.write("Random Forest Evaluation (Initial Run)\n")
-    f.write(f"Best Parameters: {rf_Grid.best_params_}\n")
-    f.write(f"Train R² Score: {rf_Grid.score(X_train, y_train):.3f}\n")
-    f.write(f"Test R² Score: {rf_Grid.score(X_test, y_test):.3f}\n")
-    f.write(f"MAE: {mae:.2f}\n")
-    f.write(f"RMSE: {rmse:.2f}\n")
-
-print("Training/Validation/Test splits saved to CSV.")
-
-df.to_csv("processed_data_for_modeling.csv", index=False)
-
-# Predict with best model
-y_val_best = rf_Grid.predict(X_val)
-
-# Recalculate metrics (optional, but recommended)
-mae = mean_absolute_error(y_val, y_val_best)
-rmse = np.sqrt(mean_squared_error(y_val, y_val_best))
-print(f"[TUNED] MAE: {mae:.2f}")
-print(f"[TUNED] RMSE: {rmse:.2f}")
-
-# Save updated predictions
-predicted_vs_actual = pd.DataFrame({
-    'Actual Price': y_val,
-    'Predicted Price': y_val_best
-})
-predicted_vs_actual.to_csv("validation_predictions.csv", index=False)
-
-# Plot again
-plt.figure(figsize=(8, 6))
-plt.scatter(y_val, y_val_best, alpha=0.3)
-plt.xlabel("Actual Price")
-plt.ylabel("Predicted Price")
-plt.title("Validation Set: Actual vs Predicted Prices (Fine Tuned RF)")
-plt.plot([y_val.min(), y_val.max()], [y_val.min(), y_val.max()], color='red')
-plt.savefig("actual_vs_predicted_scatter_fine_tuned.png")
-plt.close()
-
-
-importances = rf_Grid.best_estimator_.feature_importances_
-features = X_train.columns
-
-feature_importance_df = pd.DataFrame({
-    'Feature': features,
-    'Importance': importances
-}).sort_values(by='Importance', ascending=False)
-
-import matplotlib.pyplot as plt
-import seaborn as sns
-
-# Optional: set a style for better visuals
-sns.set(style="whitegrid")
-
-# Create a figure and axis
-plt.figure(figsize=(10, 6))
-
-# Scatter plot
-plt.scatter(y_val, y_val_best, alpha=0.4, edgecolors='w', linewidth=0.5)
-
-# Add line of perfect prediction
-plt.plot([y_val.min(), y_val.max()], [y_val.min(), y_val.max()], 'r--', lw=2)
-
-# Labels and title
-plt.xlabel("Actual Price (€)", fontsize=12)
-plt.ylabel("Predicted Price (€)", fontsize=12)
-plt.title("Actual vs Predicted Prices (Fine-Tuned Random Forest)", fontsize=14)
-
-# Optional: improve tick formatting
-plt.xticks(rotation=45)
-plt.yticks(rotation=45)
-
-# Save and show the plot
-plt.tight_layout()
-plt.savefig("fancy_actual_vs_predicted.png", dpi=300)
-plt.show()
+# =========================
+# 1. Load and Clean Dataset
+# =========================
+df = pd.read_csv("data/cleaned_data_after_imputation.csv")
+
+# --- Remove outliers from price using IQR ---
+Q1 = df["price"].quantile(0.25)
+Q3 = df["price"].quantile(0.75)
+IQR = Q3 - Q1
+lower_bound = Q1 - 1.5 * IQR
+upper_bound = Q3 + 1.5 * IQR
+df = df[(df["price"] >= lower_bound) & (df["price"] <= upper_bound)]
+
+# ===============================
+# 2. Define Features and Targets
+# ===============================
+numeric_columns = [
+    "bedroomCount", "toilet_and_bath", "habitableSurface",
+    "facedeCount", "hasTerrace", "totalParkingCount"
+]
+
+categorical_columns = [
+    "type", "subtype", "province", "locality",
+    "postCode", "buildingCondition", "epcScore"
+]
+
+for col in categorical_columns:
+    df[col] = df[col].astype(str).fillna("nan")
+
+X = df[numeric_columns + categorical_columns]
+y = df["price"]
+
+# ==================================
+# 3. Split into Train / Val / Test
+# ==================================
+
+# First, train vs temp (70/30)
+X_train, X_temp, y_train, y_temp = train_test_split(
+    X, y, test_size=0.3, random_state=42
+)
+
+# Then, split temp into val/test (50/50 of 30% → 15% each)
+X_val, X_test, y_val, y_test = train_test_split(
+    X_temp, y_temp, test_size=0.5, random_state=42
+)
+
+print(f"Train size: {X_train.shape[0]}")
+print(f"Validation size: {X_val.shape[0]}")
+print(f"Test size: {X_test.shape[0]}")
+
+# ============================
+# 4. Train CatBoost Model
+# ============================
+catboost_model = CatBoostRegressor(
+    iterations=900,
+    learning_rate=0.23,
+    depth=7,
+    loss_function='RMSE',
+    random_state=42,
+    verbose=100
+)
+
+catboost_model.fit(
+    X_train, y_train,
+    cat_features=categorical_columns,
+    eval_set=(X_val, y_val),
+    early_stopping_rounds=50
+)
+
+# ============================
+# 5. Evaluate Performance
+# ============================
+
+def evaluate_model(name, y_true, y_pred):
+    print(f"\n{name} Set Metrics:")
+    print("R²:", round(r2_score(y_true, y_pred), 3))
+    print("MAE:", round(mean_absolute_error(y_true, y_pred), 2))
+    print("MAPE:", round(mean_absolute_percentage_error(y_true, y_pred), 2))
+    print("RMSE:", round(np.sqrt(mean_squared_error(y_true, y_pred)), 2))
+
+# Predictions
+evaluate_model("Train", y_train, catboost_model.predict(X_train))
+evaluate_model("Validation", y_val, catboost_model.predict(X_val))
+evaluate_model("Test", y_test, catboost_model.predict(X_test))
+
+# ============================
+# 6. Save Model
+# ============================
+catboost_model.save_model("catboost_model.cbm")
+print("\n Model trained and saved as 'catboost_model.cbm'")

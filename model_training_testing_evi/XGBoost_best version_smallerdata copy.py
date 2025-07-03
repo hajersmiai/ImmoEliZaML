@@ -17,102 +17,100 @@ postal_df.columns = postal_df.columns.str.strip().str.lower().str.replace(" ", "
 df.columns = df.columns.str.strip().str.lower()
 
 
+#Thinking of restricting the prediction afetr excluding prices on the highest 1% spectrum 
+
+price_99th = df['price'].quantile(0.99)
+print(f"99th percentile of price: {price_99th:.2f}")
+
+df = df[df['price'] <= price_99th]
+print(df.shape)
 
 
-# #Thinking of restricting the prediction afetr excluding prices on the highest 1% spectrum 
-
-# price_99th = df['price'].quantile(0.99)
-# print(f"99th percentile of price: {price_99th:.2f}")
-
-# df = df[df['price'] <= price_99th]
-# print(df.shape)
+print(df.columns.tolist())
+print(postal_df.columns.tolist())
 
 
-# print(df.columns.tolist())
-# print(postal_df.columns.tolist())
+#enrichment with columns based on postcode ['code', 'localite', 'longitude', 'latitude']
+postal_df = postal_df.rename(columns={"code": "postcode"})
+
+postal_df = postal_df.drop_duplicates(subset="postcode")
+postal_df = postal_df.groupby("postcode").first().reset_index()
+
+columns_to_keep = ['postcode', 'longitude', 'latitude']
+postal_df = postal_df[columns_to_keep]
+
+df["postcode"] = df["postcode"].astype(str)
+postal_df["postcode"] = postal_df["postcode"].astype(str)
+
+df = df.merge(postal_df, how="left", on="postcode")
+df = df.dropna(subset=['longitude', 'latitude']) #drops only one row
 
 
-# #enrichment with columns based on postcode ['code', 'localite', 'longitude', 'latitude']
-# postal_df = postal_df.rename(columns={"code": "postcode"})
-
-# postal_df = postal_df.drop_duplicates(subset="postcode")
-# postal_df = postal_df.groupby("postcode").first().reset_index()
-
-# columns_to_keep = ['postcode', 'longitude', 'latitude']
-# postal_df = postal_df[columns_to_keep]
-
-# df["postcode"] = df["postcode"].astype(str)
-# postal_df["postcode"] = postal_df["postcode"].astype(str)
-
-# df = df.merge(postal_df, how="left", on="postcode")
-# df = df.dropna(subset=['longitude', 'latitude']) #drops only one row
+print(df.columns.tolist())
+print("Dataset shape:", df.shape)
 
 
-# print(df.columns.tolist())
-# print("Dataset shape:", df.shape)
+#Now that the database is ready we proceed to change all categorical to numericalcategorical_cols = df.select_dtypes(include='object').columns.tolist()
+#Check first:
+
+#First Type to 0/1
+df['type'] = df['type'].map({'HOUSE': 0, 'APARTMENT': 1})
+
+#epc and building condition => Ordinal encoding
+epc_map = {'missing': 0, 'A': 1, 'B': 2, 'C': 3, 'D': 4, 'E': 5, 'F': 6, 'G': 7}
+df['epcscore'] = df['epcscore'].map(epc_map)
+
+condition_map = {
+    'missing': 0,
+    'TO_RESTORE': 1,
+    'TO_BE_DONE_UP': 2,
+    'TO_RENOVATE': 3,
+    'JUST_RENOVATED': 4,
+    'GOOD': 5,
+    'AS_NEW': 6
+}
+df['buildingcondition'] = df['buildingcondition'].map(condition_map)
+
+#province 
+
+df = pd.get_dummies(df, columns=['province'], drop_first=True)
+
+from sklearn.preprocessing import OneHotEncoder
+
+top_50 = df['locality'].value_counts().nlargest(50).index
+df['locality_grouped'] = df['locality'].apply(lambda x: x if x in top_50 else 'Other')
+
+ohe = OneHotEncoder(handle_unknown='ignore', sparse_output=False)
+locality_encoded = ohe.fit_transform(df[['locality_grouped']])
+locality_feature_names = ohe.get_feature_names_out(['locality_grouped'])
+locality_df = pd.DataFrame(locality_encoded, columns=locality_feature_names, index=df.index)
+df = pd.concat([df, locality_df], axis=1)
+
+df.drop('locality_grouped', axis=1, inplace=True)
+df.drop('locality', axis=1, inplace=True)
 
 
-# #Now that the database is ready we proceed to change all categorical to numericalcategorical_cols = df.select_dtypes(include='object').columns.tolist()
-# #Check first:
+#For subtype I had the idea to use label in an order that has to do with price from apartment to castle, but this would cause major data leakage,
+# I decided to go safer with the median surface and group them (this is kinda ok for Forest but not for linear regression).
+# # Second try I want to use one hot encoder + linear regression? distance based models like linear regression and KNN sensitive to labels/enumaration
 
-# #First Type to 0/1
-# df['type'] = df['type'].map({'HOUSE': 0, 'APARTMENT': 1})
-
-# #epc and building condition => Ordinal encoding
-# epc_map = {'missing': 0, 'A': 1, 'B': 2, 'C': 3, 'D': 4, 'E': 5, 'F': 6, 'G': 7}
-# df['epcscore'] = df['epcscore'].map(epc_map)
-
-# condition_map = {
-#     'missing': 0,
-#     'TO_RESTORE': 1,
-#     'TO_BE_DONE_UP': 2,
-#     'TO_RENOVATE': 3,
-#     'JUST_RENOVATED': 4,
-#     'GOOD': 5,
-#     'AS_NEW': 6
-# }
-# df['buildingcondition'] = df['buildingcondition'].map(condition_map)
-
-# #province 
-
-# df = pd.get_dummies(df, columns=['province'], drop_first=True)
-
-# from sklearn.preprocessing import OneHotEncoder
-
-# top_50 = df['locality'].value_counts().nlargest(50).index
-# df['locality_grouped'] = df['locality'].apply(lambda x: x if x in top_50 else 'Other')
-
-# ohe = OneHotEncoder(handle_unknown='ignore', sparse_output=False)
-# locality_encoded = ohe.fit_transform(df[['locality_grouped']])
-# locality_feature_names = ohe.get_feature_names_out(['locality_grouped'])
-# locality_df = pd.DataFrame(locality_encoded, columns=locality_feature_names, index=df.index)
-# df = pd.concat([df, locality_df], axis=1)
-
-# df.drop('locality_grouped', axis=1, inplace=True)
-# df.drop('locality', axis=1, inplace=True)
+ordered_subtypes = df.groupby("subtype")["habitablesurface"].median().sort_values().index
+subtype_mapping = {subtype: i for i, subtype in enumerate(ordered_subtypes)}
+df["subtype_encoded"] = df["subtype"].map(subtype_mapping)
+df.drop(columns=['subtype'], inplace=True) #drop the original column
 
 
-# #For subtype I had the idea to use label in an order that has to do with price from apartment to castle, but this would cause major data leakage,
-# # I decided to go safer with the median surface and group them (this is kinda ok for Forest but not for linear regression).
-# # # Second try I want to use one hot encoder + linear regression? distance based models like linear regression and KNN sensitive to labels/enumaration
-
-# ordered_subtypes = df.groupby("subtype")["habitablesurface"].median().sort_values().index
-# subtype_mapping = {subtype: i for i, subtype in enumerate(ordered_subtypes)}
-# df["subtype_encoded"] = df["subtype"].map(subtype_mapping)
-# df.drop(columns=['subtype'], inplace=True) #drop the original column
-
-
-# df.drop(columns=['postcode'], inplace=True)
-# columns_to_drop = [
-#     'type', 'subtype', 'province', 'locality',
-#     'buildingCondition', 'floodZoneType', 'heatingType', 
-#     'kitchenType', 'gardenOrientation', 'terraceOrientation', 'epcScore'
-# ]
-# df.drop(columns=columns_to_drop, inplace=True, errors='ignore')
+df.drop(columns=['postcode'], inplace=True)
+columns_to_drop = [
+    'type', 'subtype', 'province', 'locality',
+    'buildingCondition', 'floodZoneType', 'heatingType', 
+    'kitchenType', 'gardenOrientation', 'terraceOrientation', 'epcScore'
+]
+df.drop(columns=columns_to_drop, inplace=True, errors='ignore')
 
 
-# df.to_csv("processed_data_for_modeling.csv", index=False)
-# print("Final cleaned dataset saved as 'processed_data_for_modeling.csv'")
+df.to_csv("processed_data_for_modeling.csv", index=False)
+print("Final cleaned dataset saved as 'processed_data_for_modeling.csv'")
 
 # Drop all remaining object-type columns to avoid XGBoost errors
 df = df.drop(columns=df.select_dtypes(include='object').columns, errors='ignore')
