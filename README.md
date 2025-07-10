@@ -133,9 +133,13 @@ immoeliza-ml/
 ## 💡 Improvement Ideas
 
 ✅ Integrate socioeconomic and neighborhood indicators.
+
 ✅ Automate hyperparameter tuning with Optuna or GridSearchCV.
+
 ✅ Deploy as a FastAPI endpoint for real-time prediction.
+
 ✅ Integrate SHAP for interpretability on pricing predictions.
+
 📝 License
 
 MIT License. Feel free to use, adapt, and contribute.
