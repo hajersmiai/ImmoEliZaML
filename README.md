@@ -23,10 +23,15 @@ This project includes:
 ## 🚀 Features
 
 ✅ End-to-end ML pipeline (data → model → evaluation)  
+
 ✅ Outlier removal, missing value handling, and encoding ready  
+
 ✅ Model selection and comparative evaluation  
+
 ✅ Fast iteration and hyperparameter tuning-ready  
+
 ✅ Clear, well-structured, typed, and documented Python code  
+
 ✅ Black formatted for clean style
 
 ---
@@ -133,9 +138,13 @@ immoeliza-ml/
 ## 💡 Improvement Ideas
 
 ✅ Integrate socioeconomic and neighborhood indicators.
+
 ✅ Automate hyperparameter tuning with Optuna or GridSearchCV.
+
 ✅ Deploy as a FastAPI endpoint for real-time prediction.
+
 ✅ Integrate SHAP for interpretability on pricing predictions.
+
 📝 License
 
 MIT License. Feel free to use, adapt, and contribute.
